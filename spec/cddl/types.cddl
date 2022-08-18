@@ -33,5 +33,7 @@ range<T> = {
 
 ; An attribute related index, which can include sub-attributes or IDs recursively.
 attribute-related-index     = attribute-id / sub-attribute-related-index
+
+; A sub-attribute related index.
 sub-attribute-related-index = [attribute-id, uint]
                             / [attribute-id, sub-attribute-related-index]
