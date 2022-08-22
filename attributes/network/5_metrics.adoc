@@ -1,4 +1,8 @@
 = Metrics Attribute (#6)
 :cddl: ./cddl/
 
+Similar to events, metrics are a crosscutting attribute that is impacted by every other attributes.
+Any attributes can define metrics name, and some metrics can be custom for a specific network.
 
+For example, the ledger attribute adds a metric named `[2, 0]` which contains the number of accounts the ledger has (with non-zero balance).
+A network might choose to expose or not that metric.

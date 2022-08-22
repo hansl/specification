@@ -1,0 +1,45 @@
+; tag::types[]
+; A metric name.
+metrics-name = attribute-related-index
+
+; A metric value. This is depende
+metrics-value = ()
+
+metrics-info = {
+    ; Description.
+    0 => tstr,
+
+    ; Metrics Type. This is a CDDL string.
+    1 => tstr,
+}
+; end::types[]
+
+; tag::info[]
+metrics.info@param = ()
+
+metrics.info@return = {
+    ; List of supported metrics.
+    0 => metrics-name,
+}
+; end::info[]
+
+; tag::getInfo[]
+metrics.getInfo@param = {
+    0 => metrics-name // [ * metrics-name ],
+}
+
+metrics.getInfo@return = {
+    * metrics-name => metrics-info,
+}
+; end::description[]
+
+; tag::query[]
+; Query one or more metrics.
+metrics.query@param = {
+    ; The name of the metrics to query.
+    ? 0 => metrics-name // [ * metrics-name ],
+}
+metrics.query@return = {
+    * metrics-name => metrics-value,
+}
+; end::query[]

@@ -1,0 +1,8 @@
+; tag::metrics[]
+; The number of accounts in the ledger.
+metrics-name /= ledger-account-count-metrics-name
+metrics-value /= ledger-account-count-metrics-value
+
+ledger-account-count-metrics-name = [2, 0]
+ledger-account-count-metrics-value = uint
+; end::metrics[]
