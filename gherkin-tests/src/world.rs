@@ -7,20 +7,61 @@ use many_client::client::ledger::{BalanceArgs, LedgerClient, Symbol, TokenAmount
 use many_client::ManyClient;
 use many_identity::{Address, AnonymousIdentity, Identity};
 use many_identity_dsa::CoseKeyIdentity;
+use many_protocol::{encode_cose_sign1_from_request, RequestMessage, ResponseMessage};
+use rand::rngs::StdRng;
+use rand::{Rng, SeedableRng};
 
-use crate::params::Identifier;
+use crate::params::{Cbor, Identifier};
 use crate::{cose::new_identity, opts::SpecConfig};
+
+pub struct
 
 #[derive(Debug, WorldInit)]
 pub struct World {
-    spec_config: Option<Arc<SpecConfig>>,
     identities: BTreeMap<Identifier, CoseKeyIdentity>,
+    messages: BTreeMap<Identifier, Cbor>,
+
+    spec_config: Option<Arc<SpecConfig>>,
     symbols: BTreeMap<String, Symbol>,
-    ledger_clients: BTreeMap<Address, LedgerClient<CoseKeyIdentity>>,
     base_client: Option<BaseClient<CoseKeyIdentity>>,
+    ledger_clients: BTreeMap<Address, LedgerClient<CoseKeyIdentity>>,
+
+    rand: StdRng,
+    latest_response: Option<ResponseMessage>,
 }
 
 impl World {
+    pub fn seed(&mut self, seed: u64) {
+        self.rand = StdRng::seed_from_u64(seed);
+    }
+    pub fn rng(&mut self) -> &mut StdRng {
+        &mut self.rand
+    }
+
+    pub async fn send(&mut self, identity: Option<Identifier>, request: RequestMessage) -> () {
+        let cose_sign1 = match identity {
+            None => encode_cose_sign1_from_request(request, &AnonymousIdentity),
+            Some(id) => encode_cose_sign1_from_request(
+                request,
+                self.identity(&id).expect("Invalid identity name"),
+            ),
+        }
+        .expect("Could not create an envelope.");
+    }
+
+    pub fn register_cbor(&mut self, id: Identifier, cbor: Cbor) {
+        self.messages.insert(id, cbor);
+    }
+
+    pub fn render(&mut self, id: Identifier) -> Vec<u8> {
+        let cbor = self.messages.get(&id).expect("Could not find CBOR.");
+        cbor.render(&mut self.rand).expect("Could not render CBOR")
+    }
+
+    pub fn get_cbor(&mut self, id: Identifier) -> Option<&Cbor> {
+        self.messages.get(&id)
+    }
+
     pub fn faucet_ledger_client(&self) -> &LedgerClient<CoseKeyIdentity> {
         self.ledger_client(self.spec_config().faucet_identity.address())
     }
@@ -117,7 +158,10 @@ impl cucumber::World for World {
             identities: BTreeMap::new(),
             symbols: BTreeMap::new(),
             ledger_clients: BTreeMap::new(),
+            rand: StdRng::seed_from_u64(0),
             base_client: None,
+            latest_response: None,
+            messages: Default::default(),
         })
     }
 }

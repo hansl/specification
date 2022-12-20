@@ -6,15 +6,25 @@ edition = "2021"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
+anyhow = "1.0.66"
 async-trait = "0.1"
 cbor-diag = "0.1"
 clap = "3.2"
 cucumber = "0.13"
+either = "1.8.0"
 futures = "0.3"
-many-identity = { git = "http://github.com/liftedinit/many-rs", branch = "main", features = [ "testing" ] }
-many-identity-dsa = { git = "http://github.com/liftedinit/many-rs", branch = "main", features = [ "testing", "ecdsa", "ed25519" ] }
-many-client = { git = "http://github.com/liftedinit/many-rs", branch = "main" }
+hex = "0.4.3"
+many-identity = { git = "http://github.com/liftedinit/many-rs", rev = "cfabad4a057d56a9fb6e48e8f37de6a865227e1f", features = [ "testing" ] }
+many-identity-dsa = { git = "http://github.com/liftedinit/many-rs", rev = "cfabad4a057d56a9fb6e48e8f37de6a865227e1f", features = [ "testing", "ecdsa", "ed25519" ] }
+many-client = { git = "http://github.com/liftedinit/many-rs", rev = "cfabad4a057d56a9fb6e48e8f37de6a865227e1f" }
+many-protocol = { git = "http://github.com/liftedinit/many-rs", rev = "cfabad4a057d56a9fb6e48e8f37de6a865227e1f" }
+many-types = { git = "http://github.com/liftedinit/many-rs", rev = "cfabad4a057d56a9fb6e48e8f37de6a865227e1f" }
+minicbor = "0.18.0"
 num-bigint = "0.4"
+num-traits = "0.2.15"
+peg = "0.8.1"
+rand = "0.8.5"
+regex = { version = "1.7.0", features = ["pattern"] }
 serde = "1.0"
 tokio = { version = "1.20", features = [ "macros", "rt-multi-thread", "fs" ] }
 toml = "0.5"

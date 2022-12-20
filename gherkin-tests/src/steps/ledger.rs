@@ -22,7 +22,7 @@ fn setup_symbol(world: &mut World, symbol: String) {
 async fn id_has_x_symbols(world: &mut World, id: Identifier, amount: BigUint, symbol: String) {
     let amount: TokenAmount = amount.into();
     let faucet = world.spec_config().faucet_identity.clone();
-    let identity = world.identity(&id).unwrap().clone();
+    let identity = world.identity(&id).unwrap();
     let symbol = *world.symbol(&symbol).unwrap();
     let current_balance = world.balance(identity.address(), symbol).await;
     let faucet_balance = world.balance(faucet.address(), symbol).await;
