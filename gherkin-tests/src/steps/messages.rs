@@ -13,7 +13,7 @@ async fn send_cbor(world: &mut World, method: Method, cbor: Identifier) {
     let rendered = world.render(cbor);
     world
         .send(
-            None,
+            "anonymous",
             RequestMessage::default()
                 .with_data(rendered)
                 .with_method(method.into()),

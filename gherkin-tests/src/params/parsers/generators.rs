@@ -1,5 +1,7 @@
 use super::FuzzGenerator;
+use crate::world::WorldVar;
 use num_traits::{Bounded, ToPrimitive};
+use std::collections::BTreeMap;
 use std::ops::{Bound, RangeInclusive};
 
 const BSTR_LENGTH_MAX: usize = 1024;
@@ -8,6 +10,7 @@ const BSTR_LENGTH_MAX: usize = 1024;
 pub enum Generator {
     Uint(u64, u64),
     BstrBounded(usize, usize, (u8, u8)),
+    Variable(String),
 }
 
 impl Generator {
@@ -55,6 +58,10 @@ impl Generator {
         Self::BstrBounded(min, max, p)
     }
 
+    pub fn new_variable(name: &str) -> Self {
+        Self::Variable(name.to_owned())
+    }
+
     fn gen_uint<Rng: rand::Rng>(rng: &mut Rng, min: u64, max: u64) -> u64 {
         rng.gen_range(RangeInclusive::new(min, max))
     }
@@ -79,12 +86,20 @@ impl Generator {
 }
 
 impl FuzzGenerator for Generator {
-    fn fuzz<Rng: rand::Rng>(&self, rng: &mut Rng) -> String {
+    fn fuzz<Rng: rand::Rng>(
+        &self,
+        rng: &mut Rng,
+        variables: &BTreeMap<String, WorldVar>,
+    ) -> String {
         match self {
             Self::Uint(min, max) => Self::gen_uint(rng, *min, *max).to_string(),
             Self::BstrBounded(min, max, pattern) => {
                 format!("h'{}'", Self::gen_bstr(rng, *min, *max, *pattern))
             }
+            Self::Variable(name) => variables
+                .get(name)
+                .expect("Could not find variable")
+                .fuzz(rng, variables),
         }
     }
 }

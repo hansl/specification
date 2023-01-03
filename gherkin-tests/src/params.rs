@@ -1,12 +1,14 @@
 use crate::params::parsers::{FuzzGenerator, Generator};
+use crate::world::WorldVar;
 use anyhow::Error;
 use cucumber::Parameter;
 use either::Either;
 use rand::Rng;
 use regex::Regex;
+use std::collections::BTreeMap;
 use std::str::FromStr;
 
-mod parsers;
+pub mod parsers;
 
 #[derive(Parameter, Debug, Clone)]
 #[param(regex = r#"(?:[^"\\]|\\.)*"#, name = "cbor")]
@@ -15,18 +17,31 @@ pub struct Cbor {
 }
 
 impl Cbor {
-    pub fn render(&self, rng: &mut impl Rng) -> Result<Vec<u8>, Error> {
+    pub fn render(
+        &self,
+        rng: &mut impl Rng,
+        variables: &BTreeMap<String, WorldVar>,
+    ) -> Result<Vec<u8>, Error> {
+        let str = self.render_string(rng, variables)?;
+        cbor_diag::parse_diag(&str)
+            .map(|x| x.to_bytes())
+            .map_err(|e| e.into())
+    }
+
+    pub fn render_string(
+        &self,
+        rng: &mut impl Rng,
+        variables: &BTreeMap<String, WorldVar>,
+    ) -> Result<String, Error> {
         let mut builder = String::with_capacity(1024);
         for part in &self.parts {
             match part {
                 Either::Left(s) => builder.push_str(&s),
-                Either::Right(g) => builder.push_str(&g.fuzz(rng)),
+                Either::Right(g) => builder.push_str(&g.fuzz(rng, variables)),
             }
         }
 
-        cbor_diag::parse_diag(&builder)
-            .map(|x| x.to_bytes())
-            .map_err(|e| e.into())
+        Ok(builder)
     }
 }
 
@@ -34,7 +49,7 @@ impl FromStr for Cbor {
     type Err = Error;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        let mut re = Regex::new(r"%%|%\(([^\)]*)\)")?;
+        let re = Regex::new(r"%%|%\(([^)]*)\)")?;
         let mut parts = Vec::new();
 
         let mut prev_idx = 0;
@@ -59,8 +74,20 @@ impl FromStr for Cbor {
 }
 
 #[derive(Parameter, Debug, Hash, Ord, PartialOrd, Eq, PartialEq, Clone)]
-#[param(regex = r"\w[\w\d.@]*", name = "identifier")]
+#[param(regex = r#"[a-zA-Z_$][a-zA-Z_$0-9]*"#, name = "identifier")]
 pub struct Identifier(String);
+
+impl ToString for Identifier {
+    fn to_string(&self) -> String {
+        self.0.clone()
+    }
+}
+
+impl AsRef<str> for Identifier {
+    fn as_ref(&self) -> &str {
+        self.0.as_str()
+    }
+}
 
 impl FromStr for Identifier {
     type Err = Error;

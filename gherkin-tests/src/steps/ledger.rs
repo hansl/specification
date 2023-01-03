@@ -15,49 +15,51 @@ fn setup_identity(world: &mut World, id: Identifier) {
 
 #[given(expr = "a symbol {word}")]
 fn setup_symbol(world: &mut World, symbol: String) {
-    assert!(world.symbols().contains_key(&symbol));
+    assert!(world.symbol(&symbol).is_some());
 }
 
 #[given(expr = "{identifier} has {int} {word}")]
 async fn id_has_x_symbols(world: &mut World, id: Identifier, amount: BigUint, symbol: String) {
     let amount: TokenAmount = amount.into();
-    let faucet = world.spec_config().faucet_identity.clone();
-    let identity = world.identity(&id).unwrap();
     let symbol = *world.symbol(&symbol).unwrap();
-    let current_balance = world.balance(identity.address(), symbol).await;
-    let faucet_balance = world.balance(faucet.address(), symbol).await;
+    let current_balance = world.balance(&id, symbol).await;
+    let faucet_balance = world.balance("faucet", symbol).await;
 
-    assert_ne!(faucet_balance, TokenAmount::zero());
+    assert!((current_balance.clone() + faucet_balance.clone()) > amount);
 
     match amount.cmp(&current_balance) {
         Ordering::Greater => {
             world
-                .faucet_ledger_client()
-                .send(SendArgs {
-                    from: Some(faucet.address()),
-                    to: identity.address(),
-                    amount: amount.clone() - current_balance,
-                    symbol,
-                })
-                .await
-                .expect("Should have sent");
+                .call(
+                    "faucet",
+                    "ledger.send",
+                    SendArgs {
+                        from: world.address_of("faucet"),
+                        to: world.address_of(&id).unwrap(),
+                        amount: amount.clone() - current_balance,
+                        symbol,
+                    },
+                )
+                .await;
         }
         Ordering::Less => {
             world
-                .ledger_client(identity.address())
-                .send(SendArgs {
-                    from: Some(identity.address()),
-                    to: faucet.address(),
-                    amount: current_balance - amount.clone(),
-                    symbol,
-                })
-                .await
-                .expect("Should have sent");
+                .call(
+                    &id,
+                    "ledger.send",
+                    SendArgs {
+                        from: world.address_of(&id),
+                        to: world.address_of("faucet").unwrap(),
+                        amount: current_balance - amount.clone(),
+                        symbol,
+                    },
+                )
+                .await;
         }
-        _ => {}
+        Ordering::Equal => {}
     }
 
-    let new_balance = world.balance(identity.address(), symbol).await;
+    let new_balance = world.balance(&id, symbol).await;
     assert_eq!(new_balance, amount);
 }
 
@@ -70,13 +72,13 @@ async fn send_symbol(
     receiver_id: Identifier,
 ) {
     let symbol = *world.symbol(&symbol).unwrap();
-    let sender = world.identity(&sender_id).unwrap().address();
-    let receiver = world.identity(&receiver_id).unwrap().address();
     world
-        .ledger_client(sender)
+        .ledger_client(&sender_id)
         .send(SendArgs {
-            from: Some(sender),
-            to: receiver,
+            from: None,
+            to: world
+                .address_of(receiver_id)
+                .expect("Could not get address."),
             amount: amount.into(),
             symbol,
         })
@@ -86,8 +88,7 @@ async fn send_symbol(
 
 #[then(expr = "the balance of {identifier} should be {int} {word}")]
 async fn balance_should_be(world: &mut World, id: Identifier, amount: BigUint, symbol: String) {
-    let identity = world.identity(&id).unwrap().address();
     let symbol = *world.symbol(&symbol).unwrap();
-    let balance = world.balance(identity, symbol).await;
+    let balance = world.balance(id, symbol).await;
     assert_eq!(balance, TokenAmount::from(amount));
 }

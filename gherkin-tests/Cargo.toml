@@ -14,11 +14,12 @@ cucumber = "0.13"
 either = "1.8.0"
 futures = "0.3"
 hex = "0.4.3"
-many-identity = { git = "http://github.com/liftedinit/many-rs", rev = "cfabad4a057d56a9fb6e48e8f37de6a865227e1f", features = [ "testing" ] }
-many-identity-dsa = { git = "http://github.com/liftedinit/many-rs", rev = "cfabad4a057d56a9fb6e48e8f37de6a865227e1f", features = [ "testing", "ecdsa", "ed25519" ] }
-many-client = { git = "http://github.com/liftedinit/many-rs", rev = "cfabad4a057d56a9fb6e48e8f37de6a865227e1f" }
-many-protocol = { git = "http://github.com/liftedinit/many-rs", rev = "cfabad4a057d56a9fb6e48e8f37de6a865227e1f" }
-many-types = { git = "http://github.com/liftedinit/many-rs", rev = "cfabad4a057d56a9fb6e48e8f37de6a865227e1f" }
+many-error = { git = "http://github.com/hansl/many-rs", branch = "qol" }
+many-identity = { git = "http://github.com/hansl/many-rs", branch = "qol", features = [ "testing" ] }
+many-identity-dsa = { git = "http://github.com/hansl/many-rs", branch = "qol", features = [ "testing", "ecdsa", "ed25519" ] }
+many-client = { git = "http://github.com/hansl/many-rs", branch = "qol" }
+many-protocol = { git = "http://github.com/hansl/many-rs", branch = "qol" }
+many-types = { git = "http://github.com/hansl/many-rs", branch = "qol" }
 minicbor = "0.18.0"
 num-bigint = "0.4"
 num-traits = "0.2.15"

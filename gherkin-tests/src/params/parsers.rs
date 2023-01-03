@@ -1,10 +1,13 @@
 pub mod generators;
 
+use crate::world::WorldVar;
 pub use generators::Generator;
+use std::collections::BTreeMap;
 use std::ops::Bound;
 
 pub trait FuzzGenerator {
-    fn fuzz<Rng: rand::Rng>(&self, rng: &mut Rng) -> String;
+    fn fuzz<Rng: rand::Rng>(&self, rng: &mut Rng, variables: &BTreeMap<String, WorldVar>)
+        -> String;
 }
 
 peg::parser! {
@@ -18,6 +21,10 @@ peg::parser! {
         / "x" n:$(['0'..='9' | 'A'..='F' | 'a'..='f']+) {? u8::from_str_radix(n, 16).or(Err("number")) }
         / n:$(['0'..='9']+) {? n.parse().or(Err("number")) }
     rule _ = quiet!{[' ' | '\n' | '\t']*}
+
+    rule varname() -> &'input str = n:$(['a'..='z' | 'A'..='Z' | '_']+ ['a'..='z' | 'A'..='Z' | '0'..='9' | '_']+) {
+        n
+    }
 
     rule range_u64() -> (Bound<u64>, Bound<u64>)
         = _ "in" _ n:(number()) ".." m:(number()) { (Bound::Included(n), Bound::Excluded(m)) }
@@ -75,6 +82,9 @@ peg::parser! {
             let length = arg_length.unwrap_or((Bound::Unbounded, Bound::Unbounded));
             let pattern = arg_pattern.unwrap_or((0, 0xFF));
             Generator::new_bstr(length, pattern)
+        }
+        / name:varname() {
+            Generator::new_variable(name)
         }
     }
 }
