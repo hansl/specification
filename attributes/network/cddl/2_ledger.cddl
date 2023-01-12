@@ -19,7 +19,7 @@ ledger.info@return = (ledger-info)
 
 ledger-info = {
     ; List of supported symbols for this ledger.
-    0 => [* ledger-symbol],
+    0 => [ * ledger-symbol ],
 
     ; Hash value of the ledger state. If two ledgers have the same hashes,
     ; chances are they have the same balances on the same accounts (with
@@ -31,13 +31,13 @@ ledger-info = {
 
     ; Transfer fees for each symbols, between accounts.
     ; TODO: not implemented.
-    2 => {
+    ? 2 => {
         ledger-symbol => transaction-fee,
     },
 
     ; Conversion rates and fees between symbols.
     ; TODO: not implemented.
-    3 => {
+    ? 3 => {
         [ledger-symbol, ledger-symbol] => conversion,
     },
 
@@ -46,12 +46,14 @@ ledger-info = {
     ; specific ledger.
     4 => {
         ; TODO: this.
-        ledger-symbol => {
+        * ledger-symbol => {
             0 => tstr,
             1 => tstr,  ; Description
             2 => uint, ; Number of precision digits
             tstr => tstr ; metadata
         }
+    } / {
+        * ledger-symbol = tstr,
     }
 }
 

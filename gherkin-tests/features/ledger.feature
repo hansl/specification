@@ -13,4 +13,5 @@ Scenario: Ledger can send tokens
 
 Scenario: Ledger can list info
   Given a cbor params = {}
-  When calling ledger.info with params
+  When calling ledger.info with params into response1
+  Then response response1 matches cddl type ledger-info

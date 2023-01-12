@@ -1,5 +1,5 @@
+use crate::opts::SpecConfig;
 use crate::params::{Cbor, Identifier};
-use crate::{cose::new_identity, opts::SpecConfig};
 use async_trait::async_trait;
 use cucumber::WorldInit;
 use many_client::client::base::BaseClient;
@@ -8,8 +8,8 @@ use many_client::client::send_envelope;
 use many_client::ManyClient;
 use many_error::ManyError;
 use many_identity::verifiers::AnonymousVerifier;
-use many_identity::{Address, AnonymousIdentity, Identity};
-use many_identity_dsa::{CoseKeyIdentity, CoseKeyVerifier};
+use many_identity::{one_of_verifier, Address, AnonymousIdentity, Identity};
+use many_identity_dsa::CoseKeyVerifier;
 use many_protocol::{
     decode_response_from_cose_sign1, encode_cose_sign1_from_request, RequestMessage,
     ResponseMessage,
@@ -26,16 +26,10 @@ pub use variables::WorldVar;
 
 #[derive(Debug, WorldInit)]
 pub struct World {
-    messages: BTreeMap<Identifier, Cbor>,
-
     spec_config: Option<Arc<SpecConfig>>,
-
     variables: BTreeMap<String, WorldVar>,
-
     server_url: Option<Url>,
-
     rand: StdRng,
-    latest_response: Option<ResponseMessage>,
 }
 
 impl World {
@@ -47,7 +41,7 @@ impl World {
         &mut self.rand
     }
 
-    async fn send_(
+    pub async fn send(
         &self,
         identity: impl AsRef<str>,
         request: RequestMessage,
@@ -62,32 +56,15 @@ impl World {
         let envelope =
             send_envelope(self.server_url.as_ref().unwrap().to_string(), cose_sign1).await?;
 
-        decode_response_from_cose_sign1(&envelope, None, &(AnonymousVerifier, CoseKeyVerifier))
-    }
-
-    pub async fn send(&mut self, identity: impl AsRef<str>, request: RequestMessage) {
-        let response = self
-            .send_(identity, request)
-            .await
-            .expect("Could not send message");
-        self.latest_response = Some(response);
+        decode_response_from_cose_sign1(
+            &envelope,
+            None,
+            one_of_verifier!(AnonymousVerifier, CoseKeyVerifier),
+        )
     }
 
     pub async fn call(
         &mut self,
-        identity: impl AsRef<str>,
-        method: impl ToString,
-        args: impl Encode<()>,
-    ) {
-        let message = RequestMessage::default()
-            .with_method(method.to_string())
-            .with_data(minicbor::to_vec(args).expect("Could not serialize argument"));
-
-        self.send(identity, message).await;
-    }
-
-    async fn call_(
-        &self,
         identity: impl AsRef<str>,
         method: impl ToString,
         args: impl Encode<()>,
@@ -96,7 +73,7 @@ impl World {
             .with_method(method.to_string())
             .with_data(minicbor::to_vec(args).expect("Could not serialize argument"));
 
-        self.send_(identity, message).await
+        self.send(identity, message).await
     }
 
     pub fn address_of(&self, identity: impl AsRef<str>) -> Option<Address> {
@@ -108,13 +85,22 @@ impl World {
         }
     }
 
-    pub fn register_cbor(&mut self, id: Identifier, cbor: Cbor) {
-        self.messages.insert(id, cbor);
+    pub fn register_cbor(&mut self, id: impl AsRef<str>, cbor: Cbor) {
+        self.insert_var(id.as_ref(), WorldVar::Cbor(cbor));
     }
 
-    pub fn render(&mut self, id: Identifier) -> Vec<u8> {
-        let cbor = self.messages.get(&id).expect("Could not find CBOR.");
+    pub fn render(&mut self, id: impl AsRef<str>) -> Vec<u8> {
+        let cbor = self.cbor(id).expect("Could not find CBOR.").clone();
+        self.render_cbor(&cbor)
+    }
+
+    pub fn render_cbor(&mut self, cbor: &Cbor) -> Vec<u8> {
         cbor.render(&mut self.rand, &self.variables)
+            .expect("Could not render CBOR")
+    }
+
+    pub fn render_cbor_string(&mut self, cbor: &Cbor) -> String {
+        cbor.render_string(&mut self.rand, &self.variables)
             .expect("Could not render CBOR")
     }
 
@@ -146,45 +132,62 @@ impl World {
         self.spec_config.as_ref().unwrap()
     }
 
+    pub fn new_identity(&mut self, id: Identifier) {
+        self.insert_var(id.to_string(), WorldVar::identity());
+    }
+
+    pub fn cbor(&self, id: impl AsRef<str>) -> Option<&Cbor> {
+        match self.variables.get(id.as_ref()) {
+            Some(WorldVar::Cbor(cbor)) => Some(cbor),
+            _ => None,
+        }
+    }
+
     pub fn symbol(&self, symbol: &str) -> Option<&Symbol> {
         match self.variables.get(symbol) {
             Some(WorldVar::Symbol(s)) => Some(s),
             _ => None,
         }
     }
-
-    pub fn insert_identity(&mut self, id: Identifier) {
-        let identity = new_identity();
-        self.insert_var(id.to_string(), WorldVar::identity());
-
-        let many_client = ManyClient::new(
-            self.spec_config().server_url.clone(),
-            AnonymousIdentity.address(),
-            identity.clone(),
-        )
-        .unwrap();
-    }
-
     pub fn identity(&self, id: impl AsRef<str>) -> Option<Arc<dyn Identity>> {
-        self.variables.get(id.as_ref()).and_then(|var| match var {
-            WorldVar::Identity(id) => Some(id.clone()),
+        match self.variables.get(id.as_ref()) {
+            Some(WorldVar::Identity(id)) => Some(Arc::clone(&id)),
             _ => None,
-        })
+        }
     }
 
-    pub fn ledger_client(&self, id: impl AsRef<str>) -> LedgerClient<CoseKeyIdentity> {
+    pub fn response(&self, id: impl AsRef<str>) -> Option<&ResponseMessage> {
+        match self.variables.get(id.as_ref()) {
+            Some(WorldVar::Response(message)) => Some(message),
+            _ => None,
+        }
+    }
+
+    pub fn response_cbor(&self, id: impl AsRef<str>) -> Option<Vec<u8>> {
+        match self.variables.get(id.as_ref()) {
+            Some(WorldVar::Response(message)) => {
+                Some(message.data.clone().expect("Response was an error"))
+            }
+            _ => None,
+        }
+    }
+
+    pub fn ledger_client(&self, id: impl AsRef<str>) -> LedgerClient<Arc<dyn Identity>> {
         let id = self.identity(id).expect("Could not find identity");
         LedgerClient::new(
             ManyClient::new(self.server_url.clone().unwrap(), Address::anonymous(), id).unwrap(),
         )
     }
 
-    pub fn base_client(&self, id: impl AsRef<str>) -> &BaseClient<CoseKeyIdentity> {
-        BaseClient::new(ManyClient::new(
-            self.server_url.clone().unwrap(),
-            Address::anonymous(),
-            self.identity(id).expect("Could not find identity."),
-        ))
+    pub fn base_client(&self, id: impl AsRef<str>) -> BaseClient<Arc<dyn Identity>> {
+        BaseClient::new(
+            ManyClient::new(
+                self.server_url.clone().unwrap(),
+                Address::anonymous(),
+                self.identity(id).expect("Could not find identity."),
+            )
+            .unwrap(),
+        )
     }
 
     pub async fn balance(&self, identity: impl AsRef<str>, symbol: Symbol) -> TokenAmount {
@@ -214,10 +217,7 @@ impl cucumber::World for World {
             spec_config: None,
             rand: StdRng::seed_from_u64(0),
             server_url: None,
-            latest_response: None,
-            messages: Default::default(),
             variables: Default::default(),
-            client: None,
         })
     }
 }

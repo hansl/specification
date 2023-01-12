@@ -8,6 +8,7 @@ use regex::Regex;
 use std::collections::BTreeMap;
 use std::str::FromStr;
 
+pub mod cddl;
 pub mod parsers;
 
 #[derive(Parameter, Debug, Clone)]

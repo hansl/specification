@@ -4,7 +4,6 @@ use cucumber::WorldInit;
 use opts::{read_spec_config, CmdOpts};
 use world::World;
 
-mod cose;
 mod opts;
 pub mod params;
 pub mod steps;

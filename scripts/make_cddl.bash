@@ -14,9 +14,18 @@ find_cddl() {
     done
 }
 
-{
-    find_cddl "$(dirname "$(dirname "$0")")"/spec
-    find_cddl "$(dirname "$(dirname "$0")")"/attributes/network
-    find_cddl "$(dirname "$(dirname "$0")")"/attributes/request
-    find_cddl "$(dirname "$(dirname "$0")")"/attributes/response
-} | xargs cat > "$1"
+write_all() {
+    find_cddl "$1"/spec
+    find_cddl "$1"/attributes/network
+    find_cddl "$1"/attributes/request
+    find_cddl "$1"/attributes/response
+}
+
+root="$(dirname "$(dirname "$0")")"
+
+# If no argument passed or empty output, just output to stdout.
+if [ "$1" == '' ]; then
+    write_all "$root" | xargs cat
+else
+    write_all "$root" | xargs cat > "$1"
+fi

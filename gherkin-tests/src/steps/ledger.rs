@@ -2,7 +2,6 @@ use std::cmp::Ordering;
 
 use cucumber::{given, then, when};
 use many_client::client::ledger::{SendArgs, TokenAmount};
-use many_identity::Identity;
 use num_bigint::BigUint;
 
 use crate::params::Identifier;
@@ -10,7 +9,7 @@ use crate::world::World;
 
 #[given(expr = "an identity {identifier}")]
 fn setup_identity(world: &mut World, id: Identifier) {
-    world.insert_identity(id);
+    world.new_identity(id);
 }
 
 #[given(expr = "a symbol {word}")]
@@ -30,31 +29,27 @@ async fn id_has_x_symbols(world: &mut World, id: Identifier, amount: BigUint, sy
     match amount.cmp(&current_balance) {
         Ordering::Greater => {
             world
-                .call(
-                    "faucet",
-                    "ledger.send",
-                    SendArgs {
-                        from: world.address_of("faucet"),
-                        to: world.address_of(&id).unwrap(),
-                        amount: amount.clone() - current_balance,
-                        symbol,
-                    },
-                )
-                .await;
+                .ledger_client("faucet")
+                .send(SendArgs {
+                    from: None,
+                    to: world.address_of(&id).unwrap(),
+                    amount: amount.clone() - current_balance,
+                    symbol,
+                })
+                .await
+                .unwrap();
         }
         Ordering::Less => {
             world
-                .call(
-                    &id,
-                    "ledger.send",
-                    SendArgs {
-                        from: world.address_of(&id),
-                        to: world.address_of("faucet").unwrap(),
-                        amount: current_balance - amount.clone(),
-                        symbol,
-                    },
-                )
-                .await;
+                .ledger_client(&id)
+                .send(SendArgs {
+                    from: world.address_of(&id),
+                    to: world.address_of("faucet").unwrap(),
+                    amount: current_balance - amount.clone(),
+                    symbol,
+                })
+                .await
+                .unwrap();
         }
         Ordering::Equal => {}
     }

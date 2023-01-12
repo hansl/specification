@@ -126,6 +126,8 @@ reason<T> = {
 address =
     textual-non-anonymous-address
     / textual-anonymous-address
+    / non-anonymous-address
+    / anonymous-address
     / #6.10000(non-anonymous-address)
     / #6.10000(anonymous-address)
 
